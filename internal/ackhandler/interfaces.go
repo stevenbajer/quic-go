@@ -39,6 +39,9 @@ type SentPacketHandler interface {
 
 	GetAlarmTimeout() time.Time
 	OnAlarm() error
+
+	// report some congestion statistics. For tracing only.
+	GetStats() *State
 }
 
 // ReceivedPacketHandler handles ACKs needed to send for incoming packets
@@ -48,4 +51,13 @@ type ReceivedPacketHandler interface {
 
 	GetAlarmTimeout() time.Time
 	GetAckFrame(protocol.EncryptionLevel) *wire.AckFrame
+}
+
+type State struct {
+	MinRTT      time.Duration
+	SmoothedRTT time.Duration
+	LatestRTT   time.Duration
+
+	BytesInFlight    protocol.ByteCount
+	CongestionWindow protocol.ByteCount
 }
