@@ -6,6 +6,7 @@
 - Rename `quic.Cookie` to `quic.Token` and `quic.Config.AcceptCookie` to `quic.Config.AcceptToken`.
 - Distinguish between Retry tokens and tokens sent in NEW_TOKEN frames.
 - Enforce application protocol negotiation (via `tls.Config.NextProtos`).
+- Add a context to `Listener.Accept`.
 
 ## v0.11.0 (2019-04-05)
 
