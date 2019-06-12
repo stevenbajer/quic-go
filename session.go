@@ -49,7 +49,7 @@ type streamManager interface {
 type cryptoStreamHandler interface {
 	RunHandshake()
 	ChangeConnectionID(protocol.ConnectionID) error
-	Received1RTTAck()
+	SetLargest1RTTAcked(protocol.PacketNumber)
 	io.Closer
 	ConnectionState() tls.ConnectionState
 }
@@ -859,7 +859,7 @@ func (s *session) handleAckFrame(frame *wire.AckFrame, pn protocol.PacketNumber,
 	}
 	if encLevel == protocol.Encryption1RTT {
 		s.receivedPacketHandler.IgnoreBelow(s.sentPacketHandler.GetLowestPacketNotConfirmedAcked())
-		s.cryptoStreamHandler.Received1RTTAck()
+		s.cryptoStreamHandler.SetLargest1RTTAcked(frame.LargestAcked())
 	}
 	return nil
 }
