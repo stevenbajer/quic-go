@@ -15,7 +15,8 @@ import (
 type updatableAEAD struct {
 	suite cipherSuite
 
-	keyPhase protocol.KeyPhase
+	keyPhase     protocol.KeyPhase
+	largestAcked protocol.PacketNumber
 
 	prevRcvAEAD cipher.AEAD
 
@@ -44,6 +45,7 @@ var _ ShortHeaderSealer = &updatableAEAD{}
 
 func newUpdatableAEAD(logger utils.Logger) *updatableAEAD {
 	return &updatableAEAD{
+		largestAcked:            protocol.InvalidPacketNumber,
 		firstRcvdWithCurrentKey: protocol.InvalidPacketNumber,
 		firstSentWithCurrentKey: protocol.InvalidPacketNumber,
 		logger:                  logger,
@@ -52,7 +54,6 @@ func newUpdatableAEAD(logger utils.Logger) *updatableAEAD {
 
 func (a *updatableAEAD) rollKeys() {
 	a.keyPhase = a.keyPhase.Next()
-	a.logger.Debugf("Updating keys to the next key phase: %s", a.keyPhase)
 	a.firstRcvdWithCurrentKey = protocol.InvalidPacketNumber
 	a.firstSentWithCurrentKey = protocol.InvalidPacketNumber
 	a.prevRcvAEAD = a.rcvAEAD
@@ -126,6 +127,7 @@ func (a *updatableAEAD) Open(dst, src []byte, pn protocol.PacketNumber, kp proto
 			return nil, qerr.Error(qerr.ProtocolViolation, "keys updated too quickly")
 		}
 		a.rollKeys()
+		a.logger.Debugf("Peer updated keys to %s", a.keyPhase)
 		a.firstRcvdWithCurrentKey = pn
 		return dec, err
 	}
@@ -150,7 +152,21 @@ func (a *updatableAEAD) Seal(dst, src []byte, pn protocol.PacketNumber, ad []byt
 	return a.sendAEAD.Seal(dst, a.nonceBuf, src, ad)
 }
 
+func (a *updatableAEAD) SetLargestAcked(pn protocol.PacketNumber) {
+	a.largestAcked = pn
+}
+
+func (a *updatableAEAD) updateAllowed() bool {
+	return a.firstSentWithCurrentKey != protocol.InvalidPacketNumber &&
+		a.largestAcked != protocol.InvalidPacketNumber &&
+		a.largestAcked >= a.firstSentWithCurrentKey
+}
+
 func (a *updatableAEAD) KeyPhase() protocol.KeyPhase {
+	if a.updateAllowed() {
+		a.logger.Debugf("Initiating key update to the next key phase: %s", a.keyPhase.Next())
+		a.rollKeys()
+	}
 	return a.keyPhase
 }
 
